@@ -58,7 +58,13 @@ export const StudentService = {
   async delete(id: string): Promise<boolean> {
     console.log("Deleting student:", id);
     const initialLength = db.students.length;
+    
+    // Remove the student
     db.students = db.students.filter(student => student._id !== id);
+    
+    // Also remove all attendance records for this student
+    db.attendances = db.attendances.filter(attendance => attendance.studentId !== id);
+    
     return db.students.length < initialLength;
   }
 };
@@ -97,7 +103,7 @@ export const AttendanceService = {
              attDate <= endDate;
     });
 
-    // Join with student information
+    // Join with student information - only include students that still exist
     return absentees.map(absentee => {
       const student = db.students.find(s => s._id === absentee.studentId);
       return {

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
@@ -57,7 +58,22 @@ const AbsenteesList = () => {
       setLoading(true);
       setSearched(true);
       const results = await getAbsenteesByDate(data.date);
-      setAbsentees(results);
+      
+      // Filter out absentees where the student may have been deleted
+      // (shown as "Unknown Student")
+      const validAbsentees = results.filter(
+        absentee => absentee.studentName !== "Unknown Student"
+      );
+      
+      setAbsentees(validAbsentees);
+      
+      if (results.length !== validAbsentees.length) {
+        toast({
+          title: "Note",
+          description: `${results.length - validAbsentees.length} attendance records were filtered out because the students have been deleted.`,
+          variant: "default",
+        });
+      }
     } catch (error) {
       toast({
         title: "Error",
