@@ -31,11 +31,43 @@ export interface AttendanceWithStudent extends Attendance {
   rollNumber: string;
 }
 
-// Mock in-memory database for demonstration
-const db = {
-  students: [] as Student[],
-  attendances: [] as Attendance[],
+// Storage keys
+const STUDENTS_STORAGE_KEY = 'student-attendance-students';
+const ATTENDANCE_STORAGE_KEY = 'student-attendance-records';
+
+// Load data from localStorage or initialize with empty arrays
+const loadFromStorage = () => {
+  try {
+    const studentsJson = localStorage.getItem(STUDENTS_STORAGE_KEY);
+    const attendancesJson = localStorage.getItem(ATTENDANCE_STORAGE_KEY);
+    
+    const students = studentsJson ? JSON.parse(studentsJson) : [];
+    
+    // Convert date strings back to Date objects for attendance records
+    const attendances = attendancesJson ? JSON.parse(attendancesJson).map((att: any) => ({
+      ...att,
+      date: new Date(att.date)
+    })) : [];
+    
+    return { students, attendances };
+  } catch (error) {
+    console.error("Failed to load data from localStorage:", error);
+    return { students: [], attendances: [] };
+  }
 };
+
+// Save data to localStorage
+const saveToStorage = (students: Student[], attendances: Attendance[]) => {
+  try {
+    localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(students));
+    localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(attendances));
+  } catch (error) {
+    console.error("Failed to save data to localStorage:", error);
+  }
+};
+
+// Mock in-memory database for demonstration, loaded from localStorage initially
+const db = loadFromStorage();
 
 // Student service
 export const StudentService = {
@@ -52,6 +84,7 @@ export const StudentService = {
       _id: ObjectId.create() 
     };
     db.students.push(newStudent);
+    saveToStorage(db.students, db.attendances);
     return newStudent;
   },
 
@@ -65,6 +98,7 @@ export const StudentService = {
     // Also remove all attendance records for this student
     db.attendances = db.attendances.filter(attendance => attendance.studentId !== id);
     
+    saveToStorage(db.students, db.attendances);
     return db.students.length < initialLength;
   }
 };
@@ -79,6 +113,7 @@ export const AttendanceService = {
       date: attendance.date instanceof Date ? attendance.date : new Date(attendance.date)
     };
     db.attendances.push(newAttendance);
+    saveToStorage(db.students, db.attendances);
     return newAttendance;
   },
 
@@ -115,45 +150,48 @@ export const AttendanceService = {
   }
 };
 
-// Initialize with some sample data
+// Initialize with some sample data only if no data exists in localStorage
 const initializeSampleData = () => {
-  // Add some sample students
-  const student1 = StudentService.add({
-    name: "John Doe",
-    rollNumber: "R001"
-  });
-  const student2 = StudentService.add({
-    name: "Jane Smith",
-    rollNumber: "R002"
-  });
-  const student3 = StudentService.add({
-    name: "Alice Johnson",
-    rollNumber: "R003"
-  });
+  if (db.students.length === 0) {
+    console.log("Initializing sample data...");
+    // Add some sample students
+    const student1 = StudentService.add({
+      name: "John Doe",
+      rollNumber: "R001"
+    });
+    const student2 = StudentService.add({
+      name: "Jane Smith",
+      rollNumber: "R002"
+    });
+    const student3 = StudentService.add({
+      name: "Alice Johnson",
+      rollNumber: "R003"
+    });
 
-  // Resolve the promises to get the actual student objects
-  Promise.all([student1, student2, student3]).then(students => {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
+    // Resolve the promises to get the actual student objects
+    Promise.all([student1, student2, student3]).then(students => {
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
 
-    // Add some sample attendance records
-    AttendanceService.markAttendance({
-      studentId: students[0]._id!,
-      date: today,
-      status: "Present"
+      // Add some sample attendance records
+      AttendanceService.markAttendance({
+        studentId: students[0]._id!,
+        date: today,
+        status: "Present"
+      });
+      AttendanceService.markAttendance({
+        studentId: students[1]._id!,
+        date: today,
+        status: "Absent"
+      });
+      AttendanceService.markAttendance({
+        studentId: students[2]._id!,
+        date: yesterday,
+        status: "Absent"
+      });
     });
-    AttendanceService.markAttendance({
-      studentId: students[1]._id!,
-      date: today,
-      status: "Absent"
-    });
-    AttendanceService.markAttendance({
-      studentId: students[2]._id!,
-      date: yesterday,
-      status: "Absent"
-    });
-  });
+  }
 };
 
 // Initialize sample data
