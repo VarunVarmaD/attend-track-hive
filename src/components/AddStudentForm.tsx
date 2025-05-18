@@ -3,7 +3,7 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { addStudent } from "@/api/students";
+import { addStudent, Student } from "@/api/students";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +36,11 @@ const AddStudentForm = () => {
 
   const onSubmit = async (data: StudentFormValues) => {
     try {
-      await addStudent(data);
+      const studentData: Student = {
+        name: data.name,
+        rollNumber: data.rollNumber
+      };
+      await addStudent(studentData);
       toast({
         title: "Success!",
         description: "Student added successfully",

@@ -1,10 +1,11 @@
+
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
-import { markAttendance } from "@/api/attendance";
+import { markAttendance, Attendance } from "@/api/attendance";
 import { getStudents, Student } from "@/api/students";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -78,7 +79,12 @@ const MarkAttendanceForm = () => {
 
   const onSubmit = async (data: AttendanceFormValues) => {
     try {
-      await markAttendance(data);
+      const attendanceData: Attendance = {
+        studentId: data.studentId,
+        date: data.date,
+        status: data.status
+      };
+      await markAttendance(attendanceData);
       toast({
         title: "Success!",
         description: "Attendance recorded successfully",

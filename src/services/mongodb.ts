@@ -1,21 +1,14 @@
 
-import { MongoClient, ObjectId } from "mongodb";
+import { v4 as uuidv4 } from 'uuid';
 
-// Use environment variables for connection strings in production
-const uri = "mongodb+srv://VarunVarma:<db_password>@cluster0.oj3oz4a.mongodb.net/";
-const client = new MongoClient(uri);
+// Create ObjectId type for compatibility
+export type ObjectId = string;
 
-// Connect to MongoDB
-let clientPromise: Promise<MongoClient>;
-
-if (!global._mongoClientPromise) {
-  clientPromise = client.connect();
-  global._mongoClientPromise = clientPromise;
-} else {
-  clientPromise = global._mongoClientPromise;
-}
-
-export { clientPromise, ObjectId };
+export const ObjectId = {
+  createFromHexString: (hexString: string): ObjectId => hexString,
+  // For new ObjectId() usage
+  create: (): ObjectId => uuidv4(),
+};
 
 // Student type
 export interface Student {
@@ -38,44 +31,53 @@ export interface AttendanceWithStudent extends Attendance {
   rollNumber: string;
 }
 
+// Mock in-memory database for demonstration
+const db = {
+  students: [] as Student[],
+  attendances: [] as Attendance[],
+};
+
 // Student service
 export const StudentService = {
   async getAll(): Promise<Student[]> {
-    const client = await clientPromise;
-    const collection = client.db().collection("students");
-    return await collection.find({}).sort({ name: 1 }).toArray() as Student[];
+    console.log("Fetching all students");
+    // Return a copy to prevent direct mutation
+    return [...db.students].sort((a, b) => a.name.localeCompare(b.name));
   },
 
   async add(student: Student): Promise<Student> {
-    const client = await clientPromise;
-    const collection = client.db().collection("students");
-    const result = await collection.insertOne(student);
-    return { ...student, _id: result.insertedId };
+    console.log("Adding student:", student);
+    const newStudent = { 
+      ...student, 
+      _id: ObjectId.create() 
+    };
+    db.students.push(newStudent);
+    return newStudent;
   },
 
   async delete(id: string): Promise<boolean> {
-    const client = await clientPromise;
-    const collection = client.db().collection("students");
-    const result = await collection.deleteOne({ _id: new ObjectId(id) });
-    return result.deletedCount === 1;
+    console.log("Deleting student:", id);
+    const initialLength = db.students.length;
+    db.students = db.students.filter(student => student._id !== id);
+    return db.students.length < initialLength;
   }
 };
 
 // Attendance service
 export const AttendanceService = {
   async markAttendance(attendance: Attendance): Promise<Attendance> {
-    const client = await clientPromise;
-    const collection = client.db().collection("attendances");
-    const result = await collection.insertOne({
+    console.log("Marking attendance:", attendance);
+    const newAttendance = {
       ...attendance,
-      studentId: new ObjectId(attendance.studentId),
-      date: new Date(attendance.date)
-    });
-    return { ...attendance, _id: result.insertedId };
+      _id: ObjectId.create(),
+      date: attendance.date instanceof Date ? attendance.date : new Date(attendance.date)
+    };
+    db.attendances.push(newAttendance);
+    return newAttendance;
   },
 
   async getAbsenteesByDate(date: Date | string): Promise<AttendanceWithStudent[]> {
-    const client = await clientPromise;
+    console.log("Fetching absentees for date:", date);
     
     // Convert string date to Date object if needed
     const queryDate = typeof date === 'string' ? new Date(date) : date;
@@ -87,40 +89,66 @@ export const AttendanceService = {
     const endDate = new Date(queryDate);
     endDate.setHours(23, 59, 59, 999);
 
-    const pipeline = [
-      {
-        $match: {
-          status: "Absent",
-          date: { 
-            $gte: queryDate,
-            $lte: endDate
-          }
-        }
-      },
-      {
-        $lookup: {
-          from: "students",
-          localField: "studentId",
-          foreignField: "_id",
-          as: "studentDetails"
-        }
-      },
-      {
-        $unwind: "$studentDetails"
-      },
-      {
-        $project: {
-          _id: 1,
-          date: 1,
-          status: 1,
-          studentId: 1,
-          studentName: "$studentDetails.name",
-          rollNumber: "$studentDetails.rollNumber"
-        }
-      }
-    ];
+    // Filter absentees by date
+    const absentees = db.attendances.filter(att => {
+      const attDate = att.date instanceof Date ? att.date : new Date(att.date);
+      return att.status === "Absent" && 
+             attDate >= queryDate && 
+             attDate <= endDate;
+    });
 
-    const collection = client.db().collection("attendances");
-    return await collection.aggregate(pipeline).toArray() as AttendanceWithStudent[];
+    // Join with student information
+    return absentees.map(absentee => {
+      const student = db.students.find(s => s._id === absentee.studentId);
+      return {
+        ...absentee,
+        studentName: student?.name || "Unknown Student",
+        rollNumber: student?.rollNumber || "Unknown"
+      };
+    });
   }
 };
+
+// Initialize with some sample data
+const initializeSampleData = () => {
+  // Add some sample students
+  const student1 = StudentService.add({
+    name: "John Doe",
+    rollNumber: "R001"
+  });
+  const student2 = StudentService.add({
+    name: "Jane Smith",
+    rollNumber: "R002"
+  });
+  const student3 = StudentService.add({
+    name: "Alice Johnson",
+    rollNumber: "R003"
+  });
+
+  // Resolve the promises to get the actual student objects
+  Promise.all([student1, student2, student3]).then(students => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    // Add some sample attendance records
+    AttendanceService.markAttendance({
+      studentId: students[0]._id!,
+      date: today,
+      status: "Present"
+    });
+    AttendanceService.markAttendance({
+      studentId: students[1]._id!,
+      date: today,
+      status: "Absent"
+    });
+    AttendanceService.markAttendance({
+      studentId: students[2]._id!,
+      date: yesterday,
+      status: "Absent"
+    });
+  });
+};
+
+// Initialize sample data
+initializeSampleData();

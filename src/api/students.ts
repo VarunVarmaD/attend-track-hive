@@ -1,6 +1,8 @@
 
 import { StudentService, Student } from "../services/mongodb";
 
+export { Student };
+
 export async function getStudents(): Promise<Student[]> {
   try {
     return await StudentService.getAll();

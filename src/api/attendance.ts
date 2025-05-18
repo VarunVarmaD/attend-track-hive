@@ -1,6 +1,8 @@
 
 import { AttendanceService, Attendance, AttendanceWithStudent } from "../services/mongodb";
 
+export { Attendance, AttendanceWithStudent };
+
 export async function markAttendance(attendance: Attendance): Promise<Attendance> {
   try {
     return await AttendanceService.markAttendance(attendance);

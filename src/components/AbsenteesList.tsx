@@ -1,8 +1,7 @@
-
 import React, { useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
-import { AttendanceWithStudent } from "@/services/mongodb";
+import { AttendanceWithStudent } from "@/api/attendance";
 import { getAbsenteesByDate } from "@/api/attendance";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
