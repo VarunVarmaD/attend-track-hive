@@ -1,7 +1,8 @@
 
-import { StudentService, Student } from "../services/mongodb";
+import { StudentService } from "../services/mongodb";
+import type { Student } from "../services/mongodb";
 
-export { Student };
+export type { Student };
 
 export async function getStudents(): Promise<Student[]> {
   try {
